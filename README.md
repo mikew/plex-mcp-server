@@ -241,6 +241,7 @@ Once configured, you can ask your AI assistant:
 | `get_playlists` | List all Plex playlists |
 | `get_playlist_items` | List items in a playlist |
 | `get_watchlist` | Get the current account Watchlist from Plex Discover |
+| `search_plex_discover` | Search the Plex Discover catalog outside your library; returns global GUIDs for `add_to_watchlist` |
 | `get_recently_watched` | Recently watched content |
 | `get_watch_history` | Detailed watch sessions |
 | `get_fully_watched` | Fully watched movies/shows |
