@@ -257,6 +257,61 @@ describe("PlexTools", () => {
       expect(result).toMatchObject({ updated: true, ratingKey: "42", plexGuid: "plex://movie/abc123" });
     });
 
+    it("adds an item directly by global Plex GUID without a local lookup", async () => {
+      (client.makeDiscoverRequest as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+      const result = parseResponse(
+        await tools.addToWatchlist({ plexGuid: "plex://movie/abc123" })
+      );
+
+      expect(client.makeDiscoverRequest).toHaveBeenCalledWith(
+        "/actions/addToWatchlist",
+        { ratingKey: "abc123" },
+        "PUT"
+      );
+      expect(client.makeRequest).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ updated: true, plexGuid: "plex://movie/abc123" });
+    });
+
+    it("adds an item by local rating key passed as an object", async () => {
+      (client.makeRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
+        MediaContainer: { Metadata: [{ guid: "plex://show/show123" }] },
+      });
+      (client.makeDiscoverRequest as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+      await tools.addToWatchlist({ ratingKey: "42" });
+
+      expect(client.makeRequest).toHaveBeenCalledWith("/library/metadata/42");
+      expect(client.makeDiscoverRequest).toHaveBeenCalledWith(
+        "/actions/addToWatchlist",
+        { ratingKey: "show123" },
+        "PUT"
+      );
+    });
+
+    it("rejects add requests with both or neither of ratingKey and plexGuid", async () => {
+      await expect(
+        tools.addToWatchlist({ ratingKey: "42", plexGuid: "plex://movie/abc123" })
+      ).rejects.toThrow(/exactly one of ratingKey or plexGuid/i);
+      await expect(tools.addToWatchlist({})).rejects.toThrow(/exactly one of ratingKey or plexGuid/i);
+      expect(client.makeDiscoverRequest).not.toHaveBeenCalled();
+    });
+
+    it("rejects a non-numeric ratingKey for add before any request", async () => {
+      await expect(
+        tools.addToWatchlist({ ratingKey: "5d776b59ad5437001f79c6f8" })
+      ).rejects.toThrow(/numeric Plex ID/i);
+      expect(client.makeRequest).not.toHaveBeenCalled();
+      expect(client.makeDiscoverRequest).not.toHaveBeenCalled();
+    });
+
+    it("rejects malformed global GUIDs for add before calling Discover", async () => {
+      await expect(
+        tools.addToWatchlist({ plexGuid: "imdb://tt1234567" })
+      ).rejects.toThrow(/Plex Movie or Plex TV Series agent/i);
+      expect(client.makeDiscoverRequest).not.toHaveBeenCalled();
+    });
+
     it("removes an account watchlist item directly by global Plex GUID", async () => {
       (client.makeDiscoverRequest as ReturnType<typeof vi.fn>).mockResolvedValue({});
 

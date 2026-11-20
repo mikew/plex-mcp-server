@@ -445,13 +445,17 @@ const DELETE_PLAYLIST_SCHEMA = {
 
 const ADD_TO_WATCHLIST_SCHEMA = {
   name: "add_to_watchlist",
-  description: "Add a local Plex movie or show to the account watchlist (requires PLEX_ENABLE_MUTATIVE_OPS=true)",
+  description: "Add a movie or show to the account watchlist by global Plex GUID or local rating key (requires PLEX_ENABLE_MUTATIVE_OPS=true)",
   inputSchema: {
     type: "object" as const,
     properties: {
-      ratingKey: { type: "string", description: "Local Plex rating key for a matched movie or show" },
+      plexGuid: { type: "string", description: "Global Plex GUID, such as plex://movie/abc123" },
+      ratingKey: { type: "string", description: "Local numeric Plex rating key for a matched movie or show; resolved to a global GUID before adding" },
     },
-    required: ["ratingKey"],
+    oneOf: [
+      { required: ["plexGuid"], not: { required: ["ratingKey"] } },
+      { required: ["ratingKey"], not: { required: ["plexGuid"] } },
+    ],
   },
 };
 

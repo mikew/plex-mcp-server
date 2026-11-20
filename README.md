@@ -264,7 +264,7 @@ Set `PLEX_ENABLE_MUTATIVE_OPS=true` to enable these tools. They allow your AI as
 | `remove_from_playlist` | Remove an item from a playlist |
 | `clear_playlist` | Preview and optionally clear all items from a playlist (`confirm=true`) |
 | `delete_playlist` | Delete a playlist without deleting the underlying media |
-| `add_to_watchlist` | Add a matched local movie or show to the account Watchlist |
+| `add_to_watchlist` | Add a movie or show to the account Watchlist by its global Plex GUID or local rating key |
 | `remove_from_watchlist` | Remove an account Watchlist item by its global Plex GUID or local rating key |
 | `rate_media` | Set the user's rating for a media item from 0 to 10 |
 | `mark_watched` | Mark a media item as watched |
