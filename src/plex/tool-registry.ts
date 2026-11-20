@@ -257,7 +257,10 @@ export function createPlexToolRegistry(tools: PlexTools, options: ToolRegistryOp
   ));
 
   registry.register("add_to_watchlist", guardMutativeOp((args) =>
-    tools.addToWatchlist(args.ratingKey as string)
+    tools.addToWatchlist({
+      ratingKey: args.ratingKey as string | undefined,
+      plexGuid: args.plexGuid as string | undefined,
+    })
   ));
 
   registry.register("remove_from_watchlist", guardMutativeOp((args) =>

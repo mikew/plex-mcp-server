@@ -997,10 +997,11 @@ export class PlexTools {
     });
   }
 
-  async addToWatchlist(ratingKey: string): Promise<MCPResponse> {
+  async addToWatchlist(
+    input: string | { ratingKey?: string; plexGuid?: string }
+  ): Promise<MCPResponse> {
     this.requireMutativeOpsEnabled("add_to_watchlist");
-    validatePlexId(ratingKey, "ratingKey");
-    const plexGuid = await this.getPlexGuid(ratingKey);
+    const { ratingKey, plexGuid } = await this.resolveWatchlistTarget(input);
 
     await this.client.makeDiscoverRequest(
       "/actions/addToWatchlist",
@@ -1014,16 +1015,7 @@ export class PlexTools {
     input: string | { ratingKey?: string; plexGuid?: string }
   ): Promise<MCPResponse> {
     this.requireMutativeOpsEnabled("remove_from_watchlist");
-    const normalized = typeof input === "string" ? { ratingKey: input } : input;
-    if (Boolean(normalized.ratingKey) === Boolean(normalized.plexGuid)) {
-      throw new McpError(
-        ErrorCode.InvalidRequest,
-        "Provide exactly one of ratingKey or plexGuid"
-      );
-    }
-    const plexGuid = normalized.plexGuid
-      ? this.validatePlexGuid(normalized.plexGuid)
-      : await this.getPlexGuid(validatePlexId(normalized.ratingKey, "ratingKey"));
+    const { ratingKey, plexGuid } = await this.resolveWatchlistTarget(input);
 
     await this.client.makeDiscoverRequest(
       "/actions/removeFromWatchlist",
@@ -1033,7 +1025,7 @@ export class PlexTools {
     return jsonResponse({
       updated: true,
       action: "remove_from_watchlist",
-      ratingKey: normalized.ratingKey,
+      ratingKey,
       plexGuid,
     });
   }
@@ -1739,6 +1731,24 @@ export class PlexTools {
     }
 
     return { item, libraryKey: String(libraryKey) };
+  }
+
+  private async resolveWatchlistTarget(
+    input: string | { ratingKey?: string; plexGuid?: string }
+  ): Promise<{ ratingKey?: string; plexGuid: string }> {
+    const normalized = typeof input === "string" ? { ratingKey: input } : input;
+    if (Boolean(normalized.ratingKey) === Boolean(normalized.plexGuid)) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        "Provide exactly one of ratingKey or plexGuid"
+      );
+    }
+
+    const plexGuid = normalized.plexGuid
+      ? this.validatePlexGuid(normalized.plexGuid)
+      : await this.getPlexGuid(validatePlexId(normalized.ratingKey, "ratingKey"));
+
+    return { ratingKey: normalized.ratingKey, plexGuid };
   }
 
   private async getPlexGuid(ratingKey: string): Promise<string> {
