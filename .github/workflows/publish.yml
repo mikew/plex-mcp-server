@@ -1,12 +1,7 @@
-name: Publish to npm
+name: Publish
 
-# The only place that publishes to npm.
-#
-# npm's OIDC trusted publishing is bound to a specific workflow *filename*, not
-# just the repository — so publishing from anywhere else fails with a confusing
-# `E404 ... you do not have permission` even though the OIDC token is valid and
-# provenance signs successfully. Keeping every publish in this one file means
-# the trusted publisher config never has to change.
+# Publishes the container image to ghcr.io. The package is no longer published
+# to npm.
 #
 # Triggered two ways:
 #   - release: published  — a release a human cuts in the UI
@@ -26,7 +21,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 # Never let two publishes of the same tag race.
 #
@@ -38,9 +32,8 @@ permissions:
 # `v1.4.0`, i.e. two different groups that never serialise against each other.
 # `github.ref_name` drops the `refs/tags/` prefix so all three agree.
 #
-# The "already on npm" check below is the second line of defence, but on its
-# own it is racy: two concurrent runs can both observe "not published" before
-# either uploads.
+# Serialising them means the second run rebuilds and repoints the same image
+# tags after the first has finished, rather than both pushing at once.
 concurrency:
   group: publish-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
@@ -97,55 +90,11 @@ jobs:
         run: |
           npx license-checker --onlyAllow 'MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;Unlicense;MPL-2.0'
 
-  publish:
-    name: Publish
-    needs: [ci, security]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.tag || github.ref }}
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-          registry-url: "https://registry.npmjs.org"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      # Republishing an existing version is a hard error on npm, which would
-      # turn a harmless re-dispatch into a red build. Skip instead.
-      - name: Skip if this version is already on npm
-        id: check
-        run: |
-          set -euo pipefail
-          version=$(node -p "require('./package.json').version")
-          name=$(node -p "require('./package.json').name")
-          echo "publishing $name@$version"
-          if npm view "$name@$version" version >/dev/null 2>&1; then
-            echo "already=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::$name@$version is already published — skipping."
-          else
-            echo "already=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Publish to npm
-        if: steps.check.outputs.already == 'false'
-        run: npm publish --provenance --access public
-
-  # Container image for ghcr.io, built from the same tag and gated on the same
-  # CI and audit jobs as the npm package, so the two never disagree.
+  # Container image for ghcr.io, built from the tag and gated on the CI and
+  # audit jobs above.
   #
-  # Lives here rather than in its own workflow so it rides the existing
-  # release.yml → workflow_dispatch path and this file's per-tag concurrency
-  # group. A second run for the same tag rebuilds and repoints the same tags,
+  # Lives in this file so it rides the existing release.yml →
+  # workflow_dispatch path and this file's per-tag concurrency group. A second run for the same tag rebuilds and repoints the same tags,
   # which is harmless. Manually re-dispatching an *older* tag would move
   # `latest` back to it, so only do that on purpose.
   docker:
