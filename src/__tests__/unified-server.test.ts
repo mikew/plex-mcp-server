@@ -24,17 +24,17 @@ describe("Unified server — tool registration", () => {
     ...PLEX_MUTATIVE_TOOL_SCHEMAS,
   ];
 
-  it("registers exactly 54 tools without mutative ops", () => {
+  it("registers exactly 55 tools without mutative ops", () => {
     const names = allBaseSchemas.map((s) => s.name);
-    expect(names).toHaveLength(54);
+    expect(names).toHaveLength(55);
     // No duplicates
-    expect(new Set(names).size).toBe(54);
+    expect(new Set(names).size).toBe(55);
   });
 
-  it("registers exactly 66 tools with mutative ops", () => {
+  it("registers exactly 67 tools with mutative ops", () => {
     const names = allSchemasWithMutative.map((s) => s.name);
-    expect(names).toHaveLength(66);
-    expect(new Set(names).size).toBe(66);
+    expect(names).toHaveLength(67);
+    expect(new Set(names).size).toBe(67);
   });
 
   it("includes plex core tools", () => {
@@ -46,6 +46,7 @@ describe("Unified server — tool registration", () => {
     expect(names).toContain("get_media_details");
     expect(names).toContain("get_watch_history");
     expect(names).toContain("get_active_sessions");
+    expect(names).toContain("search_plex_discover");
   });
 
   it("includes plex extended analytics tools (regression guard)", () => {
@@ -174,6 +175,41 @@ describe("Unified server — dispatch routing", () => {
       });
     } finally {
       remove.mockRestore();
+      if (originalMutative === undefined) delete process.env.PLEX_ENABLE_MUTATIVE_OPS;
+      else process.env.PLEX_ENABLE_MUTATIVE_OPS = originalMutative;
+    }
+  });
+
+  it("dispatches search_plex_discover with the default limit", async () => {
+    const search = vi
+      .spyOn(PlexTools.prototype, "searchDiscover")
+      .mockResolvedValue({ content: [{ type: "text", text: "{}" }] });
+
+    try {
+      await plexRegistry.handle("search_plex_discover", { query: "dune", types: ["movies"] });
+      expect(search).toHaveBeenCalledWith("dune", ["movies"], 10);
+    } finally {
+      search.mockRestore();
+    }
+  });
+
+  it("passes either global GUIDs or local rating keys to watchlist add", async () => {
+    const originalMutative = process.env.PLEX_ENABLE_MUTATIVE_OPS;
+    process.env.PLEX_ENABLE_MUTATIVE_OPS = "true";
+    const add = vi
+      .spyOn(PlexTools.prototype, "addToWatchlist")
+      .mockResolvedValue({ content: [{ type: "text", text: "{}" }] });
+
+    try {
+      await plexRegistry.handle("add_to_watchlist", {
+        plexGuid: "plex://movie/global123",
+      });
+      expect(add).toHaveBeenCalledWith({
+        plexGuid: "plex://movie/global123",
+        ratingKey: undefined,
+      });
+    } finally {
+      add.mockRestore();
       if (originalMutative === undefined) delete process.env.PLEX_ENABLE_MUTATIVE_OPS;
       else process.env.PLEX_ENABLE_MUTATIVE_OPS = originalMutative;
     }

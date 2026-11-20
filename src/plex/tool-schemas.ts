@@ -3,7 +3,7 @@
  * Defined once, used by both servers.
  */
 
-import { PLEX_TYPE_IDS } from "./constants.js";
+import { PLEX_TYPE_IDS, DISCOVER_SEARCH_TYPES, MAX_DISCOVER_SEARCH_LIMIT } from "./constants.js";
 
 /** Every media type the server resolves to a Plex type id, so the schemas cannot drift from PLEX_TYPE_IDS. */
 const MEDIA_TYPES = Object.keys(PLEX_TYPE_IDS);
@@ -170,6 +170,36 @@ const GET_WATCHLIST_SCHEMA = {
   inputSchema: {
     type: "object" as const,
     properties: {},
+  },
+};
+
+const SEARCH_PLEX_DISCOVER_SCHEMA = {
+  name: "search_plex_discover",
+  description:
+    "Search the Plex Discover catalog for movies and TV shows, including titles available on streaming services. " +
+    "This searches outside the user's own Plex library: use it to find titles to discover, or to look up the global guid of an item that isn't in the user's library. " +
+    "It does not tell you whether the user owns or has already watched something; use search_media for the user's own library. " +
+    "To add a result to the watchlist, pass its guid as plexGuid to add_to_watchlist. " +
+    "Note that ratingKey here is a Plex Discover ID, not the numeric ID of an item in a Plex Media Server library, so it won't work with tools that expect library IDs. " +
+    "Returns results ordered by relevance score.",
+  inputSchema: {
+    type: "object" as const,
+    properties: {
+      query: { type: "string", description: "Title or keywords to search for" },
+      types: {
+        type: "array",
+        items: { type: "string", enum: [...DISCOVER_SEARCH_TYPES] },
+        description: "What to search: any of movies, tv (default: both)",
+      },
+      limit: {
+        type: "number",
+        description: `Maximum number of results to return (default: 10, max: ${MAX_DISCOVER_SEARCH_LIMIT})`,
+        default: 10,
+        minimum: 1,
+        maximum: MAX_DISCOVER_SEARCH_LIMIT,
+      },
+    },
+    required: ["query"],
   },
 };
 
@@ -445,13 +475,17 @@ const DELETE_PLAYLIST_SCHEMA = {
 
 const ADD_TO_WATCHLIST_SCHEMA = {
   name: "add_to_watchlist",
-  description: "Add a local Plex movie or show to the account watchlist (requires PLEX_ENABLE_MUTATIVE_OPS=true)",
+  description: "Add a movie or show to the account watchlist by global Plex GUID or local rating key (requires PLEX_ENABLE_MUTATIVE_OPS=true)",
   inputSchema: {
     type: "object" as const,
     properties: {
-      ratingKey: { type: "string", description: "Local Plex rating key for a matched movie or show" },
+      plexGuid: { type: "string", description: "Global Plex GUID, such as plex://movie/abc123" },
+      ratingKey: { type: "string", description: "Local numeric Plex rating key for a matched movie or show; resolved to a global GUID before adding" },
     },
-    required: ["ratingKey"],
+    oneOf: [
+      { required: ["plexGuid"], not: { required: ["ratingKey"] } },
+      { required: ["ratingKey"], not: { required: ["plexGuid"] } },
+    ],
   },
 };
 
@@ -524,6 +558,7 @@ export const PLEX_CORE_TOOL_SCHEMAS = [
   GET_PLAYLIST_ITEMS_SCHEMA,
   GET_PLAYLISTS_SCHEMA,
   GET_WATCHLIST_SCHEMA,
+  SEARCH_PLEX_DISCOVER_SCHEMA,
   GET_RECENTLY_WATCHED_SCHEMA,
   GET_WATCH_HISTORY_SCHEMA,
   GET_ACTIVE_SESSIONS_SCHEMA,

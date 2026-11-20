@@ -27,7 +27,7 @@ This MCP server transforms your Plex Media Server into an AI-queryable database.
 
 ## Features
 
-**54 tools** out of the box (66 with write operations enabled):
+**55 tools** out of the box (67 with write operations enabled):
 
 - **Plex Library Management** — Browse libraries, search media, get detailed metadata, list playlists and watchlist
 - **Tautulli-Style Analytics** — Viewing statistics, user activity, popular content, watch history
@@ -224,9 +224,9 @@ Once configured, you can ask your AI assistant:
 
 ## Available Functions
 
-54 tools out of the box (66 with write operations enabled).
+55 tools out of the box (67 with write operations enabled).
 
-### Plex Tools (20 tools)
+### Plex Tools (21 tools)
 
 | Function | Description |
 |----------|-------------|
@@ -241,6 +241,7 @@ Once configured, you can ask your AI assistant:
 | `get_playlists` | List all Plex playlists |
 | `get_playlist_items` | List items in a playlist |
 | `get_watchlist` | Get the current account Watchlist from Plex Discover |
+| `search_plex_discover` | Search the Plex Discover catalog outside your library; returns global GUIDs for `add_to_watchlist` |
 | `get_recently_watched` | Recently watched content |
 | `get_watch_history` | Detailed watch sessions |
 | `get_fully_watched` | Fully watched movies/shows |
@@ -264,7 +265,7 @@ Set `PLEX_ENABLE_MUTATIVE_OPS=true` to enable these tools. They allow your AI as
 | `remove_from_playlist` | Remove an item from a playlist |
 | `clear_playlist` | Preview and optionally clear all items from a playlist (`confirm=true`) |
 | `delete_playlist` | Delete a playlist without deleting the underlying media |
-| `add_to_watchlist` | Add a matched local movie or show to the account Watchlist |
+| `add_to_watchlist` | Add a movie or show to the account Watchlist by its global Plex GUID or local rating key |
 | `remove_from_watchlist` | Remove an account Watchlist item by its global Plex GUID or local rating key |
 | `rate_media` | Set the user's rating for a media item from 0 to 10 |
 | `mark_watched` | Mark a media item as watched |

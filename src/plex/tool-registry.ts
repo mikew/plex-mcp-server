@@ -112,6 +112,14 @@ export function createPlexToolRegistry(tools: PlexTools, options: ToolRegistryOp
 
   registry.register("get_watchlist", () => tools.getWatchlist());
 
+  registry.register("search_plex_discover", (args) =>
+    tools.searchDiscover(
+      args.query as string,
+      args.types as string[] | undefined,
+      (args.limit as number) || DEFAULT_LIMITS.searchDiscover
+    )
+  );
+
   registry.register("get_active_sessions", () => tools.getActiveSessions());
 
   registry.register("get_recently_watched", (args) =>
@@ -257,7 +265,10 @@ export function createPlexToolRegistry(tools: PlexTools, options: ToolRegistryOp
   ));
 
   registry.register("add_to_watchlist", guardMutativeOp((args) =>
-    tools.addToWatchlist(args.ratingKey as string)
+    tools.addToWatchlist({
+      ratingKey: args.ratingKey as string | undefined,
+      plexGuid: args.plexGuid as string | undefined,
+    })
   ));
 
   registry.register("remove_from_watchlist", guardMutativeOp((args) =>

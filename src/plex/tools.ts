@@ -25,6 +25,8 @@ import {
   MIN_WATCHED_FOR_RECOMMENDATIONS,
   SMART_PLAYLIST_LIBTYPE_IDS,
   PLEX_TAGGABLE_TYPE_IDS,
+  MAX_DISCOVER_SEARCH_LIMIT,
+  DISCOVER_SEARCH_TYPES,
 } from "./constants.js";
 import { truncate, validatePlexId, sanitizeSearchQuery, validatePlexMediaContainer, validatePlexTotalSize } from "../shared/utils.js";
 import { formatToolPayload } from "../shared/output-format.js";
@@ -362,6 +364,97 @@ export class PlexTools {
         summary: item.summary ? truncate(String(item.summary), SUMMARY_PREVIEW_LENGTH) : undefined,
         rating: item.rating,
       })),
+    });
+  }
+
+  async searchDiscover(
+    query: string,
+    types?: string[],
+    limit: number = DEFAULT_LIMITS.searchDiscover
+  ): Promise<MCPResponse> {
+    const sanitizedQuery = sanitizeSearchQuery(query);
+
+    const searchTypes = types && types.length > 0 ? types : [...DISCOVER_SEARCH_TYPES];
+    const validTypes: readonly string[] = DISCOVER_SEARCH_TYPES;
+    for (const type of searchTypes) {
+      if (!validTypes.includes(type)) {
+        throw new McpError(
+          ErrorCode.InvalidRequest,
+          `Invalid search type "${type}" (valid: ${DISCOVER_SEARCH_TYPES.join(", ")})`
+        );
+      }
+    }
+
+    const safeLimit =
+      Number.isFinite(limit) && limit > 0
+        ? Math.min(Math.floor(limit), MAX_DISCOVER_SEARCH_LIMIT)
+        : DEFAULT_LIMITS.searchDiscover;
+
+    const data = await this.client.makeDiscoverRequest(
+      "/library/search",
+      {
+        query: sanitizedQuery,
+        searchProviders: "discover",
+        searchTypes: searchTypes.join(","),
+        includeMetadata: 1,
+      },
+      "GET"
+    );
+    const container = data as {
+      MediaContainer?: {
+        SearchResults?: Array<{
+          SearchResult?: Array<{ Metadata?: Record<string, unknown>; score?: number }>;
+        }>;
+      };
+    };
+
+    const seen = new Set<string>();
+    const matches: Array<{ item: Record<string, unknown>; score: number }> = [];
+    for (const group of container.MediaContainer?.SearchResults || []) {
+      for (const result of group.SearchResult || []) {
+        const item = result.Metadata;
+        if (!item) continue;
+        const key = String(item.ratingKey || item.guid || "");
+        if (key && seen.has(key)) continue;
+        if (key) seen.add(key);
+        matches.push({ item, score: typeof result.score === "number" ? result.score : 0 });
+      }
+    }
+    // Array.prototype.sort is stable, so equal scores keep Plex's order
+    matches.sort((a, b) => b.score - a.score);
+
+    return jsonResponse({
+      query: sanitizedQuery,
+      types: searchTypes,
+      limit: safeLimit,
+      results: matches.slice(0, safeLimit).map(({ item, score }) => {
+        const type = item.type;
+        const slug = typeof item.slug === "string" ? item.slug : undefined;
+        const isShow = type === "show";
+        return {
+          title: item.title,
+          type,
+          year: item.year,
+          originallyAvailableAt: item.originallyAvailableAt,
+          genres: (item.Genre as Array<{ tag?: string }> | undefined)
+            ?.map((g) => g.tag)
+            .filter(Boolean),
+          score,
+          durationMinutes:
+            typeof item.duration === "number" ? Math.floor(item.duration / 60000) : undefined,
+          seasons: isShow ? item.childCount : undefined,
+          episodes: isShow ? item.leafCount : undefined,
+          guid: item.guid,
+          ratingKey: item.ratingKey,
+          url:
+            slug && (type === "movie" || type === "show")
+              ? `https://watch.plex.tv/${type}/${slug}`
+              : undefined,
+          thumb: item.thumb,
+          art: item.art,
+        };
+      }),
+      source: "Plex Discover catalog (outside the user's library)",
     });
   }
 
@@ -997,10 +1090,11 @@ export class PlexTools {
     });
   }
 
-  async addToWatchlist(ratingKey: string): Promise<MCPResponse> {
+  async addToWatchlist(
+    input: string | { ratingKey?: string; plexGuid?: string }
+  ): Promise<MCPResponse> {
     this.requireMutativeOpsEnabled("add_to_watchlist");
-    validatePlexId(ratingKey, "ratingKey");
-    const plexGuid = await this.getPlexGuid(ratingKey);
+    const { ratingKey, plexGuid } = await this.resolveWatchlistTarget(input);
 
     await this.client.makeDiscoverRequest(
       "/actions/addToWatchlist",
@@ -1014,16 +1108,7 @@ export class PlexTools {
     input: string | { ratingKey?: string; plexGuid?: string }
   ): Promise<MCPResponse> {
     this.requireMutativeOpsEnabled("remove_from_watchlist");
-    const normalized = typeof input === "string" ? { ratingKey: input } : input;
-    if (Boolean(normalized.ratingKey) === Boolean(normalized.plexGuid)) {
-      throw new McpError(
-        ErrorCode.InvalidRequest,
-        "Provide exactly one of ratingKey or plexGuid"
-      );
-    }
-    const plexGuid = normalized.plexGuid
-      ? this.validatePlexGuid(normalized.plexGuid)
-      : await this.getPlexGuid(validatePlexId(normalized.ratingKey, "ratingKey"));
+    const { ratingKey, plexGuid } = await this.resolveWatchlistTarget(input);
 
     await this.client.makeDiscoverRequest(
       "/actions/removeFromWatchlist",
@@ -1033,7 +1118,7 @@ export class PlexTools {
     return jsonResponse({
       updated: true,
       action: "remove_from_watchlist",
-      ratingKey: normalized.ratingKey,
+      ratingKey,
       plexGuid,
     });
   }
@@ -1739,6 +1824,24 @@ export class PlexTools {
     }
 
     return { item, libraryKey: String(libraryKey) };
+  }
+
+  private async resolveWatchlistTarget(
+    input: string | { ratingKey?: string; plexGuid?: string }
+  ): Promise<{ ratingKey?: string; plexGuid: string }> {
+    const normalized = typeof input === "string" ? { ratingKey: input } : input;
+    if (Boolean(normalized.ratingKey) === Boolean(normalized.plexGuid)) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        "Provide exactly one of ratingKey or plexGuid"
+      );
+    }
+
+    const plexGuid = normalized.plexGuid
+      ? this.validatePlexGuid(normalized.plexGuid)
+      : await this.getPlexGuid(validatePlexId(normalized.ratingKey, "ratingKey"));
+
+    return { ratingKey: normalized.ratingKey, plexGuid };
   }
 
   private async getPlexGuid(ratingKey: string): Promise<string> {
