@@ -58,7 +58,13 @@ export const DEFAULT_LIMITS = {
   searchMedia: 500,
   exportPageSize: 500,
   recommendations: 10,
+  searchDiscover: 10,
 } as const;
+
+/** Hard cap on search_plex_discover results so one call can't return a huge payload. */
+export const MAX_DISCOVER_SEARCH_LIMIT = 50;
+/** searchTypes values as the Plex Discover API expects them. */
+export const DISCOVER_SEARCH_TYPES = ["movies", "tv"] as const;
 
 // Recommendation engine constants
 export const RECENCY_HALF_LIFE_DAYS = 180;

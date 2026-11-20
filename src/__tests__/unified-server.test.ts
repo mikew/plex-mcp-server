@@ -179,6 +179,41 @@ describe("Unified server — dispatch routing", () => {
     }
   });
 
+  it("dispatches search_plex_discover with the default limit", async () => {
+    const search = vi
+      .spyOn(PlexTools.prototype, "searchDiscover")
+      .mockResolvedValue({ content: [{ type: "text", text: "{}" }] });
+
+    try {
+      await plexRegistry.handle("search_plex_discover", { query: "dune", types: ["movies"] });
+      expect(search).toHaveBeenCalledWith("dune", ["movies"], 10);
+    } finally {
+      search.mockRestore();
+    }
+  });
+
+  it("passes either global GUIDs or local rating keys to watchlist add", async () => {
+    const originalMutative = process.env.PLEX_ENABLE_MUTATIVE_OPS;
+    process.env.PLEX_ENABLE_MUTATIVE_OPS = "true";
+    const add = vi
+      .spyOn(PlexTools.prototype, "addToWatchlist")
+      .mockResolvedValue({ content: [{ type: "text", text: "{}" }] });
+
+    try {
+      await plexRegistry.handle("add_to_watchlist", {
+        plexGuid: "plex://movie/global123",
+      });
+      expect(add).toHaveBeenCalledWith({
+        plexGuid: "plex://movie/global123",
+        ratingKey: undefined,
+      });
+    } finally {
+      add.mockRestore();
+      if (originalMutative === undefined) delete process.env.PLEX_ENABLE_MUTATIVE_OPS;
+      else process.env.PLEX_ENABLE_MUTATIVE_OPS = originalMutative;
+    }
+  });
+
   it("trakt registry owns trakt tools", () => {
     expect(traktRegistry.has("trakt_authenticate")).toBe(true);
     expect(traktRegistry.has("trakt_search")).toBe(true);

@@ -112,6 +112,14 @@ export function createPlexToolRegistry(tools: PlexTools, options: ToolRegistryOp
 
   registry.register("get_watchlist", () => tools.getWatchlist());
 
+  registry.register("search_plex_discover", (args) =>
+    tools.searchDiscover(
+      args.query as string,
+      args.types as string[] | undefined,
+      (args.limit as number) || DEFAULT_LIMITS.searchDiscover
+    )
+  );
+
   registry.register("get_active_sessions", () => tools.getActiveSessions());
 
   registry.register("get_recently_watched", (args) =>

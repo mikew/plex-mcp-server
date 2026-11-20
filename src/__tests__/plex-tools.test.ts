@@ -226,6 +226,103 @@ describe("PlexTools", () => {
     });
   });
 
+  describe("searchDiscover", () => {
+    const hit = (ratingKey: string, title: string, score: number, extra: Record<string, unknown> = {}) => ({
+      score,
+      Metadata: { ratingKey, guid: `plex://movie/${ratingKey}`, title, type: "movie", ...extra },
+    });
+
+    it("flattens groups, dedupes by ratingKey and sorts by score descending", async () => {
+      (client.makeDiscoverRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
+        MediaContainer: {
+          SearchResults: [
+            { SearchResult: [hit("a", "Low", 0.2), hit("b", "High", 0.9)] },
+            { SearchResult: [hit("a", "Low again", 0.2), hit("c", "Mid", 0.5)] },
+          ],
+        },
+      });
+
+      const result = parseResponse(await tools.searchDiscover("dune"));
+
+      expect(result.results.map((r: { title: string }) => r.title)).toEqual(["High", "Mid", "Low"]);
+      expect(client.makeDiscoverRequest).toHaveBeenCalledWith(
+        "/library/search",
+        { query: "dune", searchProviders: "discover", searchTypes: "movies,tv", includeMetadata: 1 },
+        "GET"
+      );
+    });
+
+    it("maps fields for movies and shows and exposes the global guid", async () => {
+      (client.makeDiscoverRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
+        MediaContainer: {
+          SearchResults: [
+            {
+              SearchResult: [
+                hit("m1", "Movie", 0.8, { duration: 7_200_000, slug: "movie", Genre: [{ tag: "Drama" }] }),
+                {
+                  score: 0.7,
+                  Metadata: {
+                    ratingKey: "s1",
+                    guid: "plex://show/s1",
+                    title: "Show",
+                    type: "show",
+                    childCount: 3,
+                    leafCount: 30,
+                    slug: "show",
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      });
+
+      const result = parseResponse(await tools.searchDiscover("x"));
+
+      expect(result.results[0]).toMatchObject({
+        guid: "plex://movie/m1",
+        durationMinutes: 120,
+        genres: ["Drama"],
+        url: "https://watch.plex.tv/movie/movie",
+      });
+      expect(result.results[1]).toMatchObject({
+        guid: "plex://show/s1",
+        seasons: 3,
+        episodes: 30,
+        url: "https://watch.plex.tv/show/show",
+      });
+    });
+
+    it("applies the limit and caps it at 50", async () => {
+      const many = Array.from({ length: 60 }, (_, i) => hit(`k${i}`, `T${i}`, i));
+      (client.makeDiscoverRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
+        MediaContainer: { SearchResults: [{ SearchResult: many }] },
+      });
+
+      expect(parseResponse(await tools.searchDiscover("x", undefined, 3)).results).toHaveLength(3);
+      expect(parseResponse(await tools.searchDiscover("x", undefined, 500)).results).toHaveLength(50);
+    });
+
+    it("sends only the requested search types", async () => {
+      (client.makeDiscoverRequest as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+      const result = parseResponse(await tools.searchDiscover("x", ["tv"]));
+
+      expect(result.results).toEqual([]);
+      expect(client.makeDiscoverRequest).toHaveBeenCalledWith(
+        "/library/search",
+        expect.objectContaining({ searchTypes: "tv" }),
+        "GET"
+      );
+    });
+
+    it("rejects invalid types and empty queries before any request", async () => {
+      await expect(tools.searchDiscover("x", ["movie"])).rejects.toThrow(/Invalid search type/);
+      await expect(tools.searchDiscover("")).rejects.toThrow(/query is required/);
+      expect(client.makeDiscoverRequest).not.toHaveBeenCalled();
+    });
+  });
+
   describe("watchlist mutations", () => {
     const ORIGINAL_MUTATIVE_ENV = process.env.PLEX_ENABLE_MUTATIVE_OPS;
 

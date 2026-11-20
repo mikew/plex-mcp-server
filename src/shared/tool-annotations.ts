@@ -49,6 +49,7 @@ const READ_ONLY_TOOLS = new Set<string>([
   "get_playlist_items",
   "get_playlists",
   "get_watchlist",
+  "search_plex_discover",
   "get_recently_watched",
   "get_watch_history",
   "get_active_sessions",

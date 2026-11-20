@@ -121,6 +121,7 @@ describe("safe-by-default classification", () => {
       "get_active_sessions",
       "get_recommendations",
       "search_media",
+      "search_plex_discover",
       "sonarr_get_series",
       "radarr_get_movies",
       "sonarr_get_tags",
