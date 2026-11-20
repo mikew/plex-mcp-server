@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.10.1](https://github.com/mikew/plex-mcp-server/compare/v1.10.0...v1.10.1) (2026-11-20)
+
+
+### Fixed
+
+* skip npm publish ([590ec61](https://github.com/mikew/plex-mcp-server/commit/590ec618a53b435d85eb2339c26b637f3fd81d96))
+
 ## [1.10.0](https://github.com/mikew/plex-mcp-server/compare/v1.9.2...v1.10.0) (2026-11-20)
 
 
