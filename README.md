@@ -27,7 +27,7 @@ This MCP server transforms your Plex Media Server into an AI-queryable database.
 
 ## Features
 
-**54 tools** out of the box (66 with write operations enabled):
+**55 tools** out of the box (67 with write operations enabled):
 
 - **Plex Library Management** — Browse libraries, search media, get detailed metadata, list playlists and watchlist
 - **Tautulli-Style Analytics** — Viewing statistics, user activity, popular content, watch history
@@ -224,9 +224,9 @@ Once configured, you can ask your AI assistant:
 
 ## Available Functions
 
-54 tools out of the box (66 with write operations enabled).
+55 tools out of the box (67 with write operations enabled).
 
-### Plex Tools (20 tools)
+### Plex Tools (21 tools)
 
 | Function | Description |
 |----------|-------------|

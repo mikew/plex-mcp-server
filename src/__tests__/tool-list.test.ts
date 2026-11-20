@@ -3,7 +3,7 @@ import { listedToolSchemas } from "../shared/tool-list.js";
 import { PLEX_MUTATIVE_TOOL_SCHEMAS } from "../plex/tool-schemas.js";
 import { PLEX_MUTATIVE_OPS_ENV_VAR } from "../plex/constants.js";
 
-// README and package.json promise 54 tools out of the box and 66 with write
+// README and package.json promise 55 tools out of the box and 67 with write
 // operations enabled. tools/list is what clients see, so it must agree.
 const WRITE_TOOLS = PLEX_MUTATIVE_TOOL_SCHEMAS.map((s) => s.name);
 const saved = process.env[PLEX_MUTATIVE_OPS_ENV_VAR];
@@ -20,14 +20,14 @@ describe("tools/list", () => {
     if (value === undefined) delete process.env[PLEX_MUTATIVE_OPS_ENV_VAR];
     else process.env[PLEX_MUTATIVE_OPS_ENV_VAR] = value;
 
-    expect(names()).toHaveLength(54);
+    expect(names()).toHaveLength(55);
     for (const tool of WRITE_TOOLS) expect(names()).not.toContain(tool);
   });
 
   it("lists write tools when write operations are enabled", () => {
     process.env[PLEX_MUTATIVE_OPS_ENV_VAR] = "true";
 
-    expect(names()).toHaveLength(66);
+    expect(names()).toHaveLength(67);
     for (const tool of WRITE_TOOLS) expect(names()).toContain(tool);
   });
 
